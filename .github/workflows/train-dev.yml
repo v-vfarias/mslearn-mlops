@@ -22,10 +22,10 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Sign in to Azure
+      - name: Azure login
         uses: azure/login@v2
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          creds: ${{secrets.AZURE_CREDENTIALS}}
 
       - name: Install Azure ML CLI
         run: |
