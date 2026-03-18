@@ -60,18 +60,17 @@ jobs:
             -f src/job.yml \
             --name "$JOB_NAME" \
             --set inputs.training_data.path=azureml:diabetes-dev-folder@latest \
-            --stream | tee training_output.log
+            --stream
+          echo "job_name=$JOB_NAME" >> "$GITHUB_OUTPUT"
 
-      - name: Extract dev metrics from logs
+      - name: Extract dev metrics from Azure ML
         id: parse-metrics
         run: |
-          if [ ! -f training_output.log ]; then
-            echo "No training_output.log found to parse metrics." >&2
-            exit 1
-          fi
+          JOB_NAME="${{ steps.train.outputs.job_name }}"
 
-          ACC=$(grep -o "Accuracy: .*" training_output.log | tail -n 1 | awk '{print $2}') || true
-          AUC=$(grep -o "AUC: .*" training_output.log | tail -n 1 | awk '{print $2}') || true
+          ACC=$(az ml job show --name "$JOB_NAME" --query "properties.output_datasets" -o tsv 2>/dev/null || true)
+          ACC=$(az ml job show --name "$JOB_NAME" --query "properties.metrics.Accuracy" -o tsv 2>/dev/null || true)
+          AUC=$(az ml job show --name "$JOB_NAME" --query "properties.metrics.AUC" -o tsv 2>/dev/null || true)
 
           echo "Dev accuracy: $ACC"
           echo "Dev AUC: $AUC"
