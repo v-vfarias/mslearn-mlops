@@ -63,14 +63,25 @@ jobs:
             --stream
           echo "job_name=$JOB_NAME" >> "$GITHUB_OUTPUT"
 
-      - name: Extract dev metrics from Azure ML
+      - name: Download job logs
+        run: |
+          az ml job download --name "${{ steps.train.outputs.job_name }}" --all --download-path ./job-logs
+
+      - name: Extract dev metrics from logs
         id: parse-metrics
         run: |
-          JOB_NAME="${{ steps.train.outputs.job_name }}"
+          LOG_FILE="./job-logs/${{ steps.train.outputs.job_name }}/user_logs/std_log.txt"
+          if [ ! -f "$LOG_FILE" ]; then
+            echo "std_log.txt not found at $LOG_FILE" >&2
+            exit 1
+          fi
 
-          ACC=$(az ml job show --name "$JOB_NAME" --query "properties.output_datasets" -o tsv 2>/dev/null || true)
-          ACC=$(az ml job show --name "$JOB_NAME" --query "properties.metrics.Accuracy" -o tsv 2>/dev/null || true)
-          AUC=$(az ml job show --name "$JOB_NAME" --query "properties.metrics.AUC" -o tsv 2>/dev/null || true)
+          echo "--- Matching log lines ---"
+          grep -E "Accuracy:|AUC:" "$LOG_FILE" || echo "No matching lines found"
+          echo "--------------------------"
+
+          ACC=$(grep -o "Accuracy: .*" "$LOG_FILE" | tail -n 1 | awk '{print $2}') || true
+          AUC=$(grep -o "AUC: .*" "$LOG_FILE" | tail -n 1 | awk '{print $2}') || true
 
           echo "Dev accuracy: $ACC"
           echo "Dev AUC: $AUC"
